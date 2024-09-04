@@ -1,6 +1,5 @@
 import chess as ch
 import concurrent.futures
-import random
 from collections import defaultdict
 import chess.polyglot
 
@@ -18,7 +17,6 @@ class Engine:
         alpha = float("-inf")
         beta = float("inf")
         move_list = list(self.board.legal_moves)
-        random.shuffle(move_list)  # Randomize to prevent deterministic behavior
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_move = {executor.submit(self.evaluateMove, self.board.copy(stack=False), move, alpha, beta): move for move in move_list}
@@ -29,16 +27,15 @@ class Engine:
                     if move_value > best_value:
                         best_value = move_value
                         best_move = move
-                except Exception as exc:
-                    print(f"Move {move} generated an exception: {exc}")
-
+                except Exception as e:
+                    print(f"Error: {e}")
+                
         return best_move
 
     def evaluateMove(self, board, move, alpha, beta):
         board.push(move)
         move_value = self.engine(board, alpha, beta, self.maxDepth - 1)
         board.pop()
-        print
         return move_value
 
     def evalFunct(self, board):
@@ -57,7 +54,7 @@ class Engine:
             ch.ROOK: 5.25,
             ch.BISHOP: 3.5,
             ch.KNIGHT: 3.5,
-            ch.QUEEN: 10,
+            ch.QUEEN: 9,
             ch.KING: 0
         }
         return values.get(piece_type, 0)
@@ -74,12 +71,12 @@ class Engine:
         center_squares = [ch.D4, ch.D5, ch.E4, ch.E5]
         score = 0
         piece_weights = {
-            ch.PAWN: 0.1,
-            ch.KNIGHT: 0.2,
-            ch.BISHOP: 0.2,
+            ch.PAWN: 0.2,
+            ch.KNIGHT: 0.25,
+            ch.BISHOP: 0.25,
             ch.ROOK: 0.15,
             ch.QUEEN: 0.3,
-            ch.KING: 0.05
+            ch.KING: 0.025
         }
         for square in center_squares:
             piece = board.piece_at(square)
@@ -103,7 +100,7 @@ class Engine:
             return self.transposition_table[board_hash]
 
         if board.turn == self.color:
-            value = float("-inf")
+            value = float("-99999")
             for move in self.orderMoves(board):
                 board.push(move)
                 value = max(value, self.engine(board, alpha, beta, depth - 1))
@@ -112,7 +109,7 @@ class Engine:
                 if beta <= alpha:
                     break
         else:
-            value = float("inf")
+            value = float("9999999999")
             for move in self.orderMoves(board):
                 board.push(move)
                 value = min(value, self.engine(board, alpha, beta, depth - 1))
