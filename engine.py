@@ -1,3 +1,5 @@
+# YPChess Engine
+
 import chess as ch
 import concurrent.futures
 from collections import defaultdict
@@ -18,7 +20,8 @@ class Engine:
         beta = float("inf")
         move_list = list(self.board.legal_moves)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Multithreading to improve the speed/efficiency.
+        with concurrent.futures.ThreadPoolExecutor() as executor: 
             future_to_move = {executor.submit(self.evaluateMove, self.board.copy(stack=False), move, alpha, beta): move for move in move_list}
             for future in concurrent.futures.as_completed(future_to_move):
                 move = future_to_move[future]
@@ -47,7 +50,8 @@ class Engine:
             score += len(board.pieces(piece_type, self.color)) * self.pieceValue(piece_type)
             score -= len(board.pieces(piece_type, not self.color)) * self.pieceValue(piece_type)
         return score
-
+    
+    # Piece Values, tweaked for more interesting games.
     def pieceValue(self, piece_type):
         values = {
             ch.PAWN: 1,
@@ -58,15 +62,19 @@ class Engine:
             ch.KING: 0
         }
         return values.get(piece_type, 0)
-
+    
+    # Checkmate detection, self explanatory.
     def mateOpportunity(self, board):
         if not list(board.legal_moves):
             if board.turn == self.color:
-                return -1e9
+                return -1e9 # Engine Loses
             else:
-                return 1e9
+                return 1e9 # Engine Wins
         return 0
     
+    # Basic Center Control, the engine will try to control the center of the board. 
+    # https://www.chessprogramming.org/Center_Control
+
     def center_control(self, board):
         center_squares = [ch.D4, ch.D5, ch.E4, ch.E5]
         score = 0
@@ -84,9 +92,10 @@ class Engine:
                 weight = piece_weights.get(piece.piece_type, 0)
                 score += weight if piece.color == self.color else -weight
         return score
-
+    
+    # Very basic for openings.
     def opening_book(self, board) -> float:
-        if board.fullmove_number < 10:
+        if board.fullmove_number < 5:
             multiplier = 1 / 30 if board.turn == self.color else -1 / 30
             return len(list(board.legal_moves)) * multiplier
         return 0.0
@@ -98,9 +107,10 @@ class Engine:
         board_hash = chess.polyglot.zobrist_hash(board)
         if board_hash in self.transposition_table:
             return self.transposition_table[board_hash]
-
+        
+        # Alpha-beta pruning
         if board.turn == self.color:
-            value = float("-99999")
+            value = float("-9999999999999")
             for move in self.orderMoves(board):
                 board.push(move)
                 value = max(value, self.engine(board, alpha, beta, depth - 1))
@@ -109,7 +119,7 @@ class Engine:
                 if beta <= alpha:
                     break
         else:
-            value = float("9999999999")
+            value = float("99999999999999")
             for move in self.orderMoves(board):
                 board.push(move)
                 value = min(value, self.engine(board, alpha, beta, depth - 1))
@@ -122,7 +132,7 @@ class Engine:
         return value
 
     def orderMoves(self, board):
-        """Order moves to improve alpha-beta pruning efficiency."""
+        # Order moves to improve alpha-beta pruning efficiency.
         move_scores = defaultdict(int)
         for move in board.legal_moves:
             if board.is_capture(move):
